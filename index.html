@@ -474,9 +474,15 @@ function parseSheet(ws, fname){
     // primaryInstructor: 첫 번째 강사만 true → KPI/합산 집계에만 포함
     const instructors = instructor.split(/[,，]/).map(s=>s.trim()).filter(Boolean);
     instructors.forEach((inst, idx)=>{
-      result.push({
+      // 계약월 파싱
+        const rawCM = colMap.contractMonth !== undefined
+          ? String(get(r, colMap.contractMonth)).trim() : '';
+        const contractMonth = rawCM ? parseMonth(rawCM) : '';
+
+        result.push({
         instructor: inst,
         lecture, platform, type, month, qty, revenue, openDate,
+        contractMonth,
         multiInstructor: instructors.length > 1,
         allInstructors: instructors,
         primaryInstructor: idx === 0  // 첫 번째만 true
@@ -631,7 +637,7 @@ function renderTurnkeyModal(){
   // 계약월 기준 집계
   const byContractMonth = {};
   turnkeyRows.forEach(r=>{
-    const cm = r.contractMonth || r.month || '미지정';
+    const cm = r.contractMonth || '계약월 미입력';
     if(!byContractMonth[cm]) byContractMonth[cm]=[];
     byContractMonth[cm].push(r);
   });
@@ -650,7 +656,7 @@ function renderTurnkeyModal(){
         <td style="font-size:12px;color:var(--text-secondary)">${esc(r.platform)}</td>
         <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.lecture)}">${esc(r.lecture)}</td>
         <td style="font-size:12px;font-weight:500">${esc(r.instructor)}</td>
-        <td style="font-size:12px;color:var(--text-secondary)">${r.month||'-'}</td>
+        <td><span class="mbadge" style="background:var(--accent-light);color:var(--accent);font-size:11px">${r.month||'-'}</span></td>
         <td class="nr">${won(r.revenue)}</td>
         <td class="nr" style="color:var(--green);font-weight:600">${won(att)}</td>
       </tr>`;
