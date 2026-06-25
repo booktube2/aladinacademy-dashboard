@@ -473,13 +473,13 @@ function parseSheet(ws, fname){
     // 강사명 콤마 분리 → 다중 강사면 각각 별도 row
     // primaryInstructor: 첫 번째 강사만 true → KPI/합산 집계에만 포함
     const instructors = instructor.split(/[,，]/).map(s=>s.trim()).filter(Boolean);
-    instructors.forEach((inst, idx)=>{
-      // 계약월 파싱
-        const rawCM = colMap.contractMonth !== undefined
-          ? String(get(r, colMap.contractMonth)).trim() : '';
-        const contractMonth = rawCM ? parseMonth(rawCM) : '';
+    // 계약월 파싱 (forEach 바깥에서 한 번만)
+    const rawCM = colMap.contractMonth !== undefined
+      ? String(get(r, colMap.contractMonth)).trim() : '';
+    const contractMonth = rawCM ? parseMonth(rawCM) : '';
 
-        result.push({
+    instructors.forEach((inst, idx)=>{
+      result.push({
         instructor: inst,
         lecture, platform, type, month, qty, revenue, openDate,
         contractMonth,
