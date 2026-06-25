@@ -189,6 +189,10 @@ tbody tr:hover td{background:#FAFAFA}
       <p id="hdr-sub">파일을 업로드하면 정산 현황이 표시됩니다</p>
     </div>
     <div class="hdr-btns">
+      <button class="btn btn-ghost" id="turnkey-btn" onclick="openTurnkeyModal()" style="display:none">
+        <span style="background:#FFF3E0;color:#E65100;font-size:10px;font-weight:700;padding:2px 7px;border-radius:12px;border:1px solid #FFCC80;margin-right:2px">TURNKEY</span>
+        턴키 현황
+      </button>
       <button class="btn btn-ghost" onclick="openProfile()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         강사 프로필
@@ -275,26 +279,6 @@ tbody tr:hover td{background:#FAFAFA}
     </table>
   </div>
 
-  <!-- 턴키 계약 현황 -->
-  <div id="turnkey-section" style="display:none;margin-bottom:18px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <div class="section-title" style="display:flex;align-items:center;gap:8px">
-        <span style="background:#FFF3E0;color:#E65100;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;border:1px solid #FFCC80">TURNKEY</span>
-        턴키 계약 현황 (계약월 기준)
-      </div>
-      <div id="turnkey-sub" style="font-size:12px;color:var(--text-secondary)"></div>
-    </div>
-    <div class="tbl-wrap">
-      <table>
-        <thead><tr>
-          <th>계약월</th><th>플랫폼</th><th>강의명</th><th>강사명</th>
-          <th class="nr">순매출</th><th class="nr">귀속액</th>
-        </tr></thead>
-        <tbody id="turnkey-tbody"><tr><td colspan="6" class="empty">턴키 데이터 없음</td></tr></tbody>
-      </table>
-    </div>
-  </div>
-
   <div class="chart-row">
     <div class="chart-box">
       <div class="chart-title">플랫폼별 매출</div>
@@ -333,6 +317,25 @@ tbody tr:hover td{background:#FAFAFA}
       <button class="modal-close" onclick="closeModal()">✕</button>
     </div>
     <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<!-- 턴키 모달 -->
+<div class="modal-overlay" id="turnkey-ov" onclick="if(event.target===this)closeTurnkeyModal()">
+  <div class="modal" style="max-width:860px">
+    <div class="modal-hdr">
+      <div>
+        <div class="modal-title" style="display:flex;align-items:center;gap:8px">
+          <span style="background:#FFF3E0;color:#E65100;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;border:1px solid #FFCC80">TURNKEY</span>
+          턴키 계약 현황
+        </div>
+        <div class="modal-sub">계약월 기준 집계 · 강사 귀속액은 정산월 기준으로 별도 정산</div>
+      </div>
+      <button class="modal-close" onclick="closeTurnkeyModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="turnkey-modal-body"></div>
+    </div>
   </div>
 </div>
 
@@ -609,11 +612,21 @@ function fullUpdate(){
 // ═══════════════════════════════════════════
 //  RENDER (table + kpi + charts)
 // ═══════════════════════════════════════════
-function renderTurnkey(){
+function openTurnkeyModal(){
+  renderTurnkeyModal();
+  document.getElementById('turnkey-ov').classList.add('open');
+}
+function closeTurnkeyModal(){
+  document.getElementById('turnkey-ov').classList.remove('open');
+}
+
+function renderTurnkeyModal(){
   const turnkeyRows = rows.filter(r=>r.type==='턴키');
-  const sec = document.getElementById('turnkey-section');
-  if(!turnkeyRows.length){ if(sec) sec.style.display='none'; return; }
-  if(sec) sec.style.display='block';
+  if(!turnkeyRows.length){
+    document.getElementById('turnkey-modal-body').innerHTML =
+      '<div class="empty" style="padding:40px">턴키 데이터가 없습니다.</div>';
+    return;
+  }
 
   // 계약월 기준 집계
   const byContractMonth = {};
@@ -627,23 +640,54 @@ function renderTurnkey(){
   let totalRev=0, totalAtt=0;
   Object.keys(byContractMonth).sort().forEach(cm=>{
     const group = byContractMonth[cm];
+    const cmRev = group.reduce((s,r)=>s+r.revenue,0);
+    const cmAtt = group.reduce((s,r)=>s+r.revenue*(getRate(r.instructor)/100),0);
+    totalRev+=cmRev; totalAtt+=cmAtt;
     group.forEach((r,i)=>{
       const att = r.revenue*(getRate(r.instructor)/100);
-      totalRev += r.revenue; totalAtt += att;
-      html += `<tr${i===0?' style="border-top:2px solid var(--border)"':''}>
-        <td style="font-size:12px;font-weight:${i===0?'600':'400'}">${i===0?cm:''}</td>
+      html+=`<tr>
+        <td style="font-size:12px;font-weight:${i===0?'600':'400'};color:${i===0?'var(--text-primary)':'transparent'}">${i===0?cm:cm}</td>
         <td style="font-size:12px;color:var(--text-secondary)">${esc(r.platform)}</td>
         <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.lecture)}">${esc(r.lecture)}</td>
         <td style="font-size:12px;font-weight:500">${esc(r.instructor)}</td>
+        <td style="font-size:12px;color:var(--text-secondary)">${r.month||'-'}</td>
         <td class="nr">${won(r.revenue)}</td>
         <td class="nr" style="color:var(--green);font-weight:600">${won(att)}</td>
       </tr>`;
     });
+    // 계약월 소계
+    if(group.length>1){
+      html+=`<tr style="background:#FFF3E0">
+        <td colspan="4" style="font-size:11px;color:#E65100;font-weight:600;padding:5px 14px">${cm} 소계</td>
+        <td></td>
+        <td class="nr" style="font-size:12px;font-weight:600;color:#E65100">${won(cmRev)}</td>
+        <td class="nr" style="font-size:12px;font-weight:600;color:var(--green)">${won(cmAtt)}</td>
+      </tr>`;
+    }
   });
-  html += `<tr class="sum-row"><td colspan="4">합계</td><td class="nr">${won(totalRev)}</td><td class="nr" style="color:var(--green)">${won(totalAtt)}</td></tr>`;
-  document.getElementById('turnkey-tbody').innerHTML = html;
-  document.getElementById('turnkey-sub').textContent =
-    `총 ${turnkeyRows.length}건 · ${won(totalRev)} · 귀속액 ${won(totalAtt)}`;
+  html+=`<tr class="sum-row">
+    <td colspan="5">전체 합계</td>
+    <td class="nr">${won(totalRev)}</td>
+    <td class="nr" style="color:var(--green)">${won(totalAtt)}</td>
+  </tr>`;
+
+  document.getElementById('turnkey-modal-body').innerHTML = `
+    <div class="tbl-wrap" style="margin-bottom:10px">
+      <table>
+        <thead><tr>
+          <th>계약월</th><th>플랫폼</th><th>강의명</th><th>강사명</th>
+          <th>정산월</th><th class="nr">순매출</th><th class="nr">귀속액</th>
+        </tr></thead>
+        <tbody>${html}</tbody>
+      </table>
+    </div>
+    <div style="font-size:11px;color:var(--text-tertiary)">※ 귀속액은 각 강사 배분율 기준 · 실제 지급은 정산월 기준으로 강사별 정산서에서 처리</div>`;
+}
+
+function renderTurnkey(){
+  const turnkeyRows = rows.filter(r=>r.type==='턴키');
+  const btn = document.getElementById('turnkey-btn');
+  if(btn) btn.style.display = turnkeyRows.length ? 'inline-flex' : 'none';
 }
 
 // 강사별 상세 데이터 캐시 (팝업용)
@@ -715,7 +759,7 @@ function render(){
   const kpiB2B=kpiSrc.filter(r=>r.type==='B2B').reduce((s,r)=>s+r.revenue,0);
   const kpiB2C=kpiSrc.filter(r=>r.type==='B2C').reduce((s,r)=>s+r.revenue,0);
   const kpiTurnkey=kpiSrc.filter(r=>r.type==='턴키').reduce((s,r)=>s+r.revenue,0);
-  const kpiTot=kpiB2B+kpiB2C+kpiTurnkey;
+  const kpiTot=kpiB2B+kpiB2C;
   let kpiAtt=0;
   const byInstKpi={};
   kpiSrc.forEach(r=>{ if(!byInstKpi[r.instructor]) byInstKpi[r.instructor]=0; byInstKpi[r.instructor]+=r.revenue; });
@@ -725,7 +769,7 @@ function render(){
   document.getElementById('k-b2b').textContent=wonS(kpiB2B);
   document.getElementById('k-b2b-s').textContent=kpiSrc.filter(r=>r.type==='B2B').length+'건'+suf;
   document.getElementById('k-b2c').textContent=wonS(kpiB2C);
-  document.getElementById('k-b2c-s').textContent=kpiSrc.filter(r=>r.type==='B2C').length+'건'+(kpiTurnkey>0?' +턴키 '+wonS(kpiTurnkey):'')+suf;
+  document.getElementById('k-b2c-s').textContent=kpiSrc.filter(r=>r.type==='B2C').length+'건'+suf;
   document.getElementById('k-tot').textContent=wonS(kpiTot);
   document.getElementById('k-tot-s').textContent='강사 '+new Set(kpiSrc.map(r=>r.instructor)).size+'명'+suf;
   document.getElementById('k-att').textContent=wonS(kpiAtt);
